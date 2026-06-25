@@ -137,6 +137,7 @@ Filenames are derived from the title (lowercased, spaces to dashes). A numeric s
 | =n= / =p=   | Move to next / previous line |
 | =g=         | Refresh the buffer           |
 | =R=         | Refile note to a directory   |
+| =D=         | Delete the note at point     |
 | =q=         | Close the buffer             |
 
 The intended workflow is short loops: open the inbox, jump into a note with =RET=, add tags or wikilinks, save, and either come back with =C-c v i= or refresh in place with =g=. Use =R= to refile the note out of =grove-inbox-directory=; the default destination is the vault root, one directory up from the default inbox. Notes drop off the list as you tag them, so the buffer doubles as a progress indicator.

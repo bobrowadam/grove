@@ -73,6 +73,7 @@ running ripgrep once per note."
     (define-key map (kbd "p") #'previous-line)
     (define-key map (kbd "g") #'grove-inbox-review)
     (define-key map (kbd "R") #'grove-inbox-refile)
+    (define-key map (kbd "D") #'grove-inbox-delete-file)
     map)
   "Keymap for `grove-inbox-mode'.")
 
@@ -163,6 +164,21 @@ NOTES is a list of (TITLE . PATH)."
     (message "Refiled %s to %s"
              (file-name-nondirectory target)
              (file-relative-name directory grove-directory))))
+
+;;;###autoload
+(defun grove-inbox-delete-file ()
+  "Delete the note at point and refresh the inbox."
+  (interactive)
+  (let* ((file (grove-inbox--file-at-point))
+         (visiting-buffer (find-buffer-visiting file)))
+    (unless (y-or-n-p (format "Delete %s? " (file-name-nondirectory file)))
+      (user-error "Delete canceled"))
+    (when visiting-buffer
+      (kill-buffer visiting-buffer))
+    (delete-file file)
+    (remhash file grove--cache)
+    (grove-inbox-review)
+    (message "Deleted %s" (file-name-nondirectory file))))
 
 (defun grove-inbox-close ()
   "Close the inbox review buffer."

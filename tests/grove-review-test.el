@@ -180,6 +180,29 @@
           (kill-buffer grove-inbox-buffer-name))
       (delete-directory grove-directory t))))
 
+(ert-deftest grove-inbox-delete-file-removes-note ()
+  (let* ((grove-directory (file-name-as-directory (make-temp-file "grove-vault" t)))
+         (file (expand-file-name "note.org" grove-directory)))
+    (unwind-protect
+        (let ((grove--cache (make-hash-table :test #'equal)))
+          (with-temp-file file
+            (insert "#+title: Note\n"))
+          (puthash file (grove--parse-note file) grove--cache)
+          (with-current-buffer (get-buffer-create grove-inbox-buffer-name)
+            (grove-inbox-mode)
+            (let ((inhibit-read-only t)
+                  (start (point)))
+              (insert "  Note\n")
+              (put-text-property start (point) 'grove-inbox-file file))
+            (goto-char (point-min))
+            (cl-letf (((symbol-function 'y-or-n-p) (lambda (&rest _) t))
+                      ((symbol-function 'grove-inbox-review) #'ignore))
+              (grove-inbox-delete-file)))
+          (should-not (file-exists-p file))
+          (should-not (gethash file grove--cache))
+          (kill-buffer grove-inbox-buffer-name))
+      (delete-directory grove-directory t))))
+
 (ert-deftest grove-inbox-review-renders-unlinked-section ()
   (let ((grove-directory (make-temp-file "grove-vault" t)))
     (unwind-protect
