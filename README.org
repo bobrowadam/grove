@@ -129,7 +129,7 @@ Filenames are derived from the title (lowercased, spaces to dashes). A numeric s
 
 ** Inbox review
 
-=C-c v i= opens =*grove-inbox*=, a triage buffer that lists notes needing attention. The buffer groups notes by the enabled =grove-inbox-review-checks=: =untagged=, =no-backlinks=, and/or =in-inbox=.
+=C-c v i= opens =*grove-inbox*=, a triage buffer that lists notes needing attention. The buffer groups notes by the enabled =grove-inbox-review-checks=: =untagged=, =no-backlinks=, and/or =in-inbox=. Files under =grove-inbox-review-excluded-directories= are skipped; by default this excludes daily notes.
 
 | Key         | Action                       |
 |-------------+------------------------------|

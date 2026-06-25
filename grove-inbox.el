@@ -27,6 +27,7 @@
 
 ;;; Code:
 
+(require 'cl-lib)
 (require 'grove-core)
 
 (defconst grove-inbox-buffer-name "*grove-inbox*"
@@ -44,6 +45,21 @@ Supported checks are:
               (const :tag "In inbox" in-inbox))
   :group 'grove)
 
+(defcustom grove-inbox-review-excluded-directories (list grove-daily-directory)
+  "Vault-relative directories excluded from `grove-inbox-review'."
+  :type '(repeat string)
+  :group 'grove)
+
+(defun grove-inbox--excluded-file-p (file)
+  "Return non-nil if FILE should be excluded from inbox review."
+  (let ((file (file-truename file)))
+    (cl-some
+     (lambda (directory)
+       (let ((directory (file-name-as-directory
+                         (file-truename (expand-file-name directory grove-directory)))))
+         (string-prefix-p directory file)))
+     grove-inbox-review-excluded-directories)))
+
 ;;;; Core
 
 (defun grove-inbox--untagged-notes ()
@@ -51,7 +67,8 @@ Supported checks are:
   (let (result)
     (maphash
      (lambda (path meta)
-       (when (null (plist-get meta :tags))
+       (when (and (not (grove-inbox--excluded-file-p path))
+                  (null (plist-get meta :tags)))
          (push (cons (plist-get meta :title) path) result)))
      grove--cache)
     (sort result (lambda (a b) (string< (car a) (car b))))))
@@ -70,7 +87,8 @@ running ripgrep once per note."
     (maphash
      (lambda (path meta)
        (let ((title (plist-get meta :title)))
-         (unless (gethash title linked)
+         (unless (or (grove-inbox--excluded-file-p path)
+                     (gethash title linked))
            (push (cons title path) result))))
      grove--cache)
     (sort result (lambda (a b) (string< (car a) (car b))))))
@@ -81,7 +99,8 @@ running ripgrep once per note."
         result)
     (maphash
      (lambda (path meta)
-       (when (string-prefix-p inbox (file-truename path))
+       (when (and (not (grove-inbox--excluded-file-p path))
+                  (string-prefix-p inbox (file-truename path)))
          (push (cons (plist-get meta :title) path) result)))
      grove--cache)
     (sort result (lambda (a b) (string< (car a) (car b))))))
