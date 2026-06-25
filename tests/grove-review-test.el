@@ -180,6 +180,33 @@
           (kill-buffer grove-inbox-buffer-name))
       (delete-directory grove-directory t))))
 
+(ert-deftest grove-inbox-add-filetag-tags-note-at-point ()
+  (let* ((grove-directory (file-name-as-directory (make-temp-file "grove-vault" t)))
+         (file (expand-file-name "note.org" grove-directory)))
+    (unwind-protect
+        (let ((grove--cache (make-hash-table :test #'equal)))
+          (with-temp-file file
+            (insert "#+title: Note\n\nBody\n"))
+          (puthash file (grove--parse-note file) grove--cache)
+          (with-current-buffer (get-buffer-create grove-inbox-buffer-name)
+            (grove-inbox-mode)
+            (let ((inhibit-read-only t)
+                  (start (point)))
+              (insert "  Note\n")
+              (put-text-property start (point) 'grove-inbox-file file))
+            (goto-char (point-min))
+            (cl-letf (((symbol-function 'grove-inbox-review) #'ignore))
+              (grove-inbox-add-filetag '("emacs" "grove"))))
+          (with-temp-buffer
+            (insert-file-contents file)
+            (should (string-match-p "^#\\+filetags: :emacs:grove:" (buffer-string))))
+          (should (equal (plist-get (gethash file grove--cache) :tags)
+                         '("emacs" "grove")))
+          (kill-buffer grove-inbox-buffer-name)
+          (when-let ((buf (find-buffer-visiting file)))
+            (kill-buffer buf)))
+      (delete-directory grove-directory t))))
+
 (ert-deftest grove-inbox-delete-file-removes-note ()
   (let* ((grove-directory (file-name-as-directory (make-temp-file "grove-vault" t)))
          (file (expand-file-name "note.org" grove-directory)))

@@ -137,6 +137,7 @@ Filenames are derived from the title (lowercased, spaces to dashes). A numeric s
 | =n= / =p=   | Move to next / previous line |
 | =g=         | Refresh the buffer           |
 | =R=         | Refile note to a directory   |
+| =T=         | Add file tags to note        |
 | =D=         | Delete the note at point     |
 | =q=         | Close the buffer             |
 

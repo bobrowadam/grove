@@ -73,6 +73,7 @@ running ripgrep once per note."
     (define-key map (kbd "p") #'previous-line)
     (define-key map (kbd "g") #'grove-inbox-review)
     (define-key map (kbd "R") #'grove-inbox-refile)
+    (define-key map (kbd "T") #'grove-inbox-add-filetag)
     (define-key map (kbd "D") #'grove-inbox-delete-file)
     map)
   "Keymap for `grove-inbox-mode'.")
@@ -164,6 +165,20 @@ NOTES is a list of (TITLE . PATH)."
     (message "Refiled %s to %s"
              (file-name-nondirectory target)
              (file-relative-name directory grove-directory))))
+
+;;;###autoload
+(defun grove-inbox-add-filetag (tags)
+  "Add TAGS to the note at point and refresh the inbox."
+  (interactive (list (grove--read-filetags "Add file tag(s): ")))
+  (let* ((file (grove-inbox--file-at-point))
+         (buffer (or (find-buffer-visiting file)
+                     (find-file-noselect file))))
+    (with-current-buffer buffer
+      (grove--insert-or-update-filetags tags)
+      (save-buffer))
+    (puthash file (grove--parse-note file) grove--cache)
+    (grove-inbox-review)
+    (message "Added file tag(s): %s" (string-join tags ", "))))
 
 ;;;###autoload
 (defun grove-inbox-delete-file ()
