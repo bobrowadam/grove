@@ -72,6 +72,7 @@ running ripgrep once per note."
     (define-key map (kbd "n") #'next-line)
     (define-key map (kbd "p") #'previous-line)
     (define-key map (kbd "g") #'grove-inbox-review)
+    (define-key map (kbd "R") #'grove-inbox-refile)
     map)
   "Keymap for `grove-inbox-mode'.")
 
@@ -80,11 +81,20 @@ running ripgrep once per note."
   :group 'grove
   (setq-local truncate-lines t))
 
+(defun grove-inbox--file-at-point ()
+  "Return the Grove note file at point, or signal a user error."
+  (or (get-text-property (point) 'grove-inbox-file)
+      (user-error "No Grove note at point")))
+
 (defun grove-inbox--visit ()
   "Visit the note at point."
   (interactive)
-  (when-let ((file (get-text-property (point) 'grove-inbox-file)))
-    (find-file file)))
+  (find-file (grove-inbox--file-at-point)))
+
+(defun grove-inbox--default-refile-directory ()
+  "Return the default directory for refiling inbox notes."
+  (grove--ensure-directory)
+  grove-directory)
 
 (defun grove-inbox--insert-section (heading notes)
   "Insert a HEADING followed by NOTES list.
@@ -129,6 +139,30 @@ NOTES is a list of (TITLE . PATH)."
     (message "Found %d untagged and %d unlinked note(s)"
              (length untagged)
              (length unlinked))))
+
+;;;###autoload
+(defun grove-inbox-refile (directory)
+  "Move the note at point to DIRECTORY and refresh the inbox."
+  (interactive
+   (list (read-directory-name "Refile to: "
+                              (grove-inbox--default-refile-directory)
+                              nil nil nil)))
+  (let* ((file (grove-inbox--file-at-point))
+         (directory (file-name-as-directory (expand-file-name directory)))
+         (target (grove--unique-path directory (file-name-nondirectory file)))
+         (visiting-buffer (find-buffer-visiting file)))
+    (unless (file-directory-p directory)
+      (make-directory directory t))
+    (rename-file file target)
+    (when visiting-buffer
+      (with-current-buffer visiting-buffer
+        (set-visited-file-name target t t)))
+    (remhash file grove--cache)
+    (puthash target (grove--parse-note target) grove--cache)
+    (grove-inbox-review)
+    (message "Refiled %s to %s"
+             (file-name-nondirectory target)
+             (file-relative-name directory grove-directory))))
 
 (defun grove-inbox-close ()
   "Close the inbox review buffer."
