@@ -78,6 +78,11 @@ running ripgrep once per note."
     map)
   "Keymap for `grove-inbox-mode'.")
 
+;; Keep existing sessions in sync when this file is reloaded.
+(define-key grove-inbox-mode-map (kbd "R") #'grove-inbox-refile)
+(define-key grove-inbox-mode-map (kbd "T") #'grove-inbox-add-filetag)
+(define-key grove-inbox-mode-map (kbd "D") #'grove-inbox-delete-file)
+
 (define-derived-mode grove-inbox-mode special-mode "Grove-Inbox"
   "Major mode for the grove inbox review buffer."
   :group 'grove
