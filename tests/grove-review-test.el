@@ -116,6 +116,28 @@
             (should-not (gethash bad-file grove--cache))))
       (delete-directory grove-directory t))))
 
+(ert-deftest grove-inbox-review-checks-can-show-inbox-files ()
+  (let* ((grove-directory (file-name-as-directory (make-temp-file "grove-vault" t)))
+         (inbox (expand-file-name "inbox" grove-directory))
+         (inbox-file (expand-file-name "in.org" inbox))
+         (root-file (expand-file-name "root.org" grove-directory)))
+    (unwind-protect
+        (let ((grove--cache (make-hash-table :test #'equal))
+              (grove-inbox-review-checks '(in-inbox)))
+          (make-directory inbox)
+          (with-temp-file inbox-file (insert "#+title: In\n"))
+          (with-temp-file root-file (insert "#+title: Root\n"))
+          (puthash inbox-file (grove--parse-note inbox-file) grove--cache)
+          (puthash root-file (grove--parse-note root-file) grove--cache)
+          (cl-letf (((symbol-function 'grove--refresh-cache) #'ignore))
+            (grove-inbox-review))
+          (with-current-buffer grove-inbox-buffer-name
+            (should (string-match-p "In inbox (1)" (buffer-string)))
+            (should (string-match-p "In" (buffer-string)))
+            (should-not (string-match-p "Root" (buffer-string)))
+            (kill-buffer (current-buffer))))
+      (delete-directory grove-directory t))))
+
 (ert-deftest grove-inbox-unlinked-notes-uses-cache-links ()
   (let ((grove--cache (make-hash-table :test #'equal)))
     (puthash "/tmp/a.org" (list :title "A" :tags nil :links '("B")) grove--cache)

@@ -32,6 +32,18 @@
 (defconst grove-inbox-buffer-name "*grove-inbox*"
   "Name of the inbox review buffer.")
 
+(defcustom grove-inbox-review-checks '(untagged no-backlinks)
+  "Checks shown by `grove-inbox-review'.
+Supported checks are:
+
+- `untagged': notes with no file tags or inline hashtags.
+- `no-backlinks': notes with no incoming wikilinks.
+- `in-inbox': notes physically under `grove-inbox-directory'."
+  :type '(set (const :tag "Untagged" untagged)
+              (const :tag "No backlinks" no-backlinks)
+              (const :tag "In inbox" in-inbox))
+  :group 'grove)
+
 ;;;; Core
 
 (defun grove-inbox--untagged-notes ()
@@ -60,6 +72,17 @@ running ripgrep once per note."
        (let ((title (plist-get meta :title)))
          (unless (gethash title linked)
            (push (cons title path) result))))
+     grove--cache)
+    (sort result (lambda (a b) (string< (car a) (car b))))))
+
+(defun grove-inbox--inbox-notes ()
+  "Return a list of (TITLE . PATH) for notes under `grove-inbox-directory'."
+  (let ((inbox (file-name-as-directory (file-truename (grove--inbox-path))))
+        result)
+    (maphash
+     (lambda (path meta)
+       (when (string-prefix-p inbox (file-truename path))
+         (push (cons (plist-get meta :title) path) result)))
      grove--cache)
     (sort result (lambda (a b) (string< (car a) (car b))))))
 
@@ -123,8 +146,12 @@ NOTES is a list of (TITLE . PATH)."
   (interactive)
   (grove--ensure-directory)
   (grove--refresh-cache)
-  (let* ((untagged (grove-inbox--untagged-notes))
-         (unlinked (grove-inbox--unlinked-notes))
+  (let* ((untagged (and (memq 'untagged grove-inbox-review-checks)
+                        (grove-inbox--untagged-notes)))
+         (unlinked (and (memq 'no-backlinks grove-inbox-review-checks)
+                        (grove-inbox--unlinked-notes)))
+         (in-inbox (and (memq 'in-inbox grove-inbox-review-checks)
+                        (grove-inbox--inbox-notes)))
          (buf (get-buffer-create grove-inbox-buffer-name)))
     (with-current-buffer buf
       (grove-inbox-mode)
@@ -135,17 +162,30 @@ NOTES is a list of (TITLE . PATH)."
                                     (hash-table-count grove--cache))
                             'face 'shadow)
                 "\n\n")
-        (grove-inbox--insert-section
-         (format "Untagged (%d)" (length untagged))
-         untagged)
-        (grove-inbox--insert-section
-         (format "No backlinks (%d)" (length unlinked))
-         unlinked)
+        (when (memq 'in-inbox grove-inbox-review-checks)
+          (grove-inbox--insert-section
+           (format "In inbox (%d)" (length in-inbox))
+           in-inbox))
+        (when (memq 'untagged grove-inbox-review-checks)
+          (grove-inbox--insert-section
+           (format "Untagged (%d)" (length untagged))
+           untagged))
+        (when (memq 'no-backlinks grove-inbox-review-checks)
+          (grove-inbox--insert-section
+           (format "No backlinks (%d)" (length unlinked))
+           unlinked))
         (goto-char (point-min))))
     (switch-to-buffer buf)
-    (message "Found %d untagged and %d unlinked note(s)"
-             (length untagged)
-             (length unlinked))))
+    (message "Grove inbox: %s"
+             (string-join
+              (delq nil
+                    (list (when (memq 'in-inbox grove-inbox-review-checks)
+                            (format "%d in inbox" (length in-inbox)))
+                          (when (memq 'untagged grove-inbox-review-checks)
+                            (format "%d untagged" (length untagged)))
+                          (when (memq 'no-backlinks grove-inbox-review-checks)
+                            (format "%d unlinked" (length unlinked)))))
+              ", "))))
 
 ;;;###autoload
 (defun grove-inbox-refile (directory)
