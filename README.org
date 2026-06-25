@@ -80,6 +80,7 @@ Set your vault directory and press =C-c v v= to open the workspace.
 | =C-c v d= | =grove-daily=        | Open today's daily note  |
 | =C-c v b= | =grove-backlinks=    | Show backlinks for note  |
 | =C-c v t= | =grove-search-tag=   | Search by tag            |
+| =C-c v T= | =grove-add-filetag=   | Add file tags to note    |
 | =C-c v i= | =grove-inbox-review= | Triage untagged notes    |
 | =C-c v l= | =grove-link-insert=  | Insert a wikilink        |
 | =C-c v g= | =grove-graph=        | Show vault graph         |
@@ -121,6 +122,10 @@ and pressing =C-c C-c= writes =inbox/project-ideas-for-next-quarter.org=:
 #+end_src
 
 Filenames are derived from the title (lowercased, spaces to dashes). A numeric suffix is appended on collision.
+
+** Tags
+
+=C-c v T= runs =grove-add-filetag= in a Grove note. It prompts for one or more comma-separated file tags with completion from tags already present in the vault, then creates or updates the note's =#+filetags:= line.
 
 ** Inbox review
 

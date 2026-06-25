@@ -10,6 +10,7 @@
 
 (require 'ert)
 (require 'grove-core)
+(require 'grove-capture)
 (require 'grove-backlink)
 (require 'grove-link)
 (require 'grove-inbox)
@@ -65,6 +66,32 @@
           (with-temp-buffer
             (insert-file-contents existing)
             (should (string= (buffer-string) "#+title: Existing\n\n"))))
+      (delete-directory grove-directory t))))
+
+(ert-deftest grove-insert-or-update-filetags-adds-line-after-title ()
+  (with-temp-buffer
+    (insert "#+title: Note\n\nBody\n")
+    (grove--insert-or-update-filetags '("emacs" "grove"))
+    (should (string-match-p "^#\\+title: Note\n#\\+filetags: :emacs:grove:" (buffer-string)))))
+
+(ert-deftest grove-insert-or-update-filetags-merges-existing-tags ()
+  (with-temp-buffer
+    (insert "#+title: Note\n#+filetags: :emacs:\n\nBody\n")
+    (grove--insert-or-update-filetags '("grove" "emacs"))
+    (should (string-match-p "^#\\+filetags: :emacs:grove:" (buffer-string)))))
+
+(ert-deftest grove-capture-finalize-prompts-for-filetags ()
+  (let ((grove-directory (make-temp-file "grove-vault" t)))
+    (unwind-protect
+        (cl-letf (((symbol-function 'grove--read-filetags)
+                   (lambda (&optional _prompt) '("emacs" "grove"))))
+          (with-current-buffer (get-buffer-create "*grove-capture-test*")
+            (erase-buffer)
+            (insert "Tagged note\nBody\n")
+            (grove-capture-mode 1)
+            (grove-capture-finalize)
+            (should (string-match-p "^#\\+filetags: :emacs:grove:" (buffer-string)))
+            (kill-buffer (current-buffer))))
       (delete-directory grove-directory t))))
 
 (ert-deftest grove-refresh-cache-skips-unavailable-files ()

@@ -28,6 +28,9 @@
 ;;; Code:
 
 (require 'cl-lib)
+(require 'subr-x)
+
+(defvar crm-separator)
 
 ;;;; Customization
 
@@ -216,6 +219,74 @@ files."
                (push (cons (plist-get meta :title) path) result))
              grove--cache)
     (sort result (lambda (a b) (string< (car a) (car b))))))
+
+(defun grove--all-tags ()
+  "Return all tags found in `grove--cache'."
+  (let ((seen (make-hash-table :test #'equal))
+        result)
+    (maphash (lambda (_path meta)
+               (dolist (tag (plist-get meta :tags))
+                 (unless (or (null tag)
+                             (string-empty-p tag)
+                             (gethash tag seen))
+                   (puthash tag t seen)
+                   (push tag result))))
+             grove--cache)
+    (sort result #'string<)))
+
+(defun grove--normalize-filetag (tag)
+  "Return TAG without leading # or surrounding colons/space."
+  (let ((tag (string-trim tag)))
+    (setq tag (replace-regexp-in-string "\\`#" "" tag))
+    (setq tag (string-trim tag ":+" ":+"))
+    (unless (string-empty-p tag)
+      tag)))
+
+(defun grove--read-filetags (&optional prompt)
+  "Read one or more file tags with completion from the current vault."
+  (grove--refresh-cache)
+  (let ((crm-separator "[ 	]*,[ 	]*"))
+    (delete-dups
+     (delq nil
+           (mapcar #'grove--normalize-filetag
+                   (completing-read-multiple
+                    (or prompt "File tag(s): ")
+                    (grove--all-tags) nil nil))))))
+
+(defun grove--format-filetags (tags)
+  "Format TAGS for an Org #+filetags line."
+  (concat ":" (string-join tags ":") ":"))
+
+(defun grove--insert-or-update-filetags (tags)
+  "Insert TAGS into the current buffer's #+filetags line."
+  (let ((tags (delete-dups (delq nil (mapcar #'grove--normalize-filetag tags)))))
+    (unless (null tags)
+      (save-excursion
+        (goto-char (point-min))
+        (if (re-search-forward "^#\\+filetags:\\s-*\\(.+\\)" nil t)
+            (let* ((start (line-beginning-position))
+                   (end (line-end-position))
+                   (existing (split-string (match-string 1) ":" t "\\s-*"))
+                   (merged (delete-dups (append existing tags))))
+              (delete-region start end)
+              (insert (concat "#+filetags: "
+                              (grove--format-filetags merged))))
+          (goto-char (point-min))
+          (if (re-search-forward "^#\\+title:.*$" nil t)
+              (end-of-line)
+            (goto-char (point-min)))
+          (insert "\n#+filetags: " (grove--format-filetags tags)))))))
+
+;;;###autoload
+(defun grove-add-filetag (tags)
+  "Add TAGS to the current note's #+filetags line."
+  (interactive (list (grove--read-filetags "Add file tag(s): ")))
+  (unless (and buffer-file-name (grove-file-p buffer-file-name))
+    (user-error "Current buffer is not a Grove note"))
+  (grove--insert-or-update-filetags tags)
+  (save-buffer)
+  (grove--refresh-cache)
+  (message "Added file tag(s): %s" (string-join tags ", ")))
 
 (defun grove--sanitize-filename (title)
   "Convert TITLE into a safe filename.

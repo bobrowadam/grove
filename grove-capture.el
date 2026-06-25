@@ -73,10 +73,13 @@ Type freely, then press \\[grove-capture-finalize] to save or
       (let* ((lines (split-string content "\n"))
              (title (string-trim (car lines)))
              (body (string-join (cdr lines) "\n"))
+             (tags (grove--read-filetags "File tag(s), comma-separated (empty for none): "))
              (filename (concat (grove--sanitize-filename title) ".org"))
              (path (grove--unique-path (grove--inbox-path) filename)))
         (with-temp-file path
           (insert "#+title: " title "\n")
+          (unless (null tags)
+            (insert "#+filetags: " (grove--format-filetags tags) "\n"))
           (unless (string-empty-p body)
             (insert "\n" body "\n")))
         (kill-buffer (current-buffer))

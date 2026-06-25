@@ -94,6 +94,7 @@
     (define-key map (kbd "f") #'grove-find)
     (define-key map (kbd "s") #'grove-search)
     (define-key map (kbd "t") #'grove-search-tag)
+    (define-key map (kbd "T") #'grove-add-filetag)
     (define-key map (kbd "d") #'grove-daily)
     (define-key map (kbd "b") #'grove-backlinks)
     (define-key map (kbd "i") #'grove-inbox-review)
