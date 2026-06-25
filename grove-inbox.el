@@ -28,7 +28,6 @@
 ;;; Code:
 
 (require 'grove-core)
-(require 'grove-backlink)
 
 (defconst grove-inbox-buffer-name "*grove-inbox*"
   "Name of the inbox review buffer.")
@@ -47,13 +46,19 @@
 
 (defun grove-inbox--unlinked-notes ()
   "Return a list of (TITLE . PATH) for notes with no incoming links.
-Checks each note for backlinks via ripgrep."
-  (let (result)
+Uses the parsed wikilinks already stored in `grove--cache' instead of
+running ripgrep once per note."
+  (let ((linked (make-hash-table :test #'equal))
+        result)
+    (maphash
+     (lambda (_path meta)
+       (dolist (link (plist-get meta :links))
+         (puthash link t linked)))
+     grove--cache)
     (maphash
      (lambda (path meta)
-       (let* ((title (plist-get meta :title))
-              (backlinks (grove-backlink--find title)))
-         (when (null backlinks)
+       (let ((title (plist-get meta :title)))
+         (unless (gethash title linked)
            (push (cons title path) result))))
      grove--cache)
     (sort result (lambda (a b) (string< (car a) (car b))))))

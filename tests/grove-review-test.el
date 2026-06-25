@@ -67,6 +67,40 @@
             (should (string= (buffer-string) "#+title: Existing\n\n"))))
       (delete-directory grove-directory t))))
 
+(ert-deftest grove-refresh-cache-skips-unavailable-files ()
+  (let* ((grove-directory (make-temp-file "grove-vault" t))
+         (ok-file (expand-file-name "ok.org" grove-directory))
+         (bad-file (expand-file-name "bad.org" grove-directory)))
+    (unwind-protect
+        (let ((grove--cache (make-hash-table :test #'equal)))
+          (with-temp-file ok-file
+            (insert "#+title: OK\n"))
+          (with-temp-file bad-file
+            (insert "#+title: Bad\n"))
+          (cl-letf (((symbol-function 'grove--parse-note)
+                     (lambda (file)
+                       (if (string= file bad-file)
+                           (signal 'file-error '("Operation timed out"))
+                         (list :title "OK" :tags nil :links nil
+                               :mtime (file-attribute-modification-time
+                                       (file-attributes file)))))))
+            (grove--refresh-cache)
+            (should (gethash ok-file grove--cache))
+            (should-not (gethash bad-file grove--cache))))
+      (delete-directory grove-directory t))))
+
+(ert-deftest grove-inbox-unlinked-notes-uses-cache-links ()
+  (let ((grove--cache (make-hash-table :test #'equal)))
+    (puthash "/tmp/a.org" (list :title "A" :tags nil :links '("B")) grove--cache)
+    (puthash "/tmp/b.org" (list :title "B" :tags nil :links nil) grove--cache)
+    (puthash "/tmp/c.org" (list :title "C" :tags nil :links '("Missing")) grove--cache)
+    (cl-letf (((symbol-function 'grove-backlink--find)
+               (lambda (&rest _)
+                 (error "should not call ripgrep for inbox backlinks"))))
+      (should (equal (grove-inbox--unlinked-notes)
+                     '(("A" . "/tmp/a.org")
+                       ("C" . "/tmp/c.org")))))))
+
 (ert-deftest grove-inbox-review-renders-unlinked-section ()
   (let ((grove-directory (make-temp-file "grove-vault" t)))
     (unwind-protect

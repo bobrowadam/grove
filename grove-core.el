@@ -180,21 +180,30 @@ Returns (:title TITLE :tags TAGS :links LINKS :mtime MTIME)."
 
 (defun grove--refresh-cache ()
   "Refresh the vault cache by scanning `grove-directory'.
-Only re-parses files whose mtime has changed."
+Only re-parses files whose mtime has changed.  Skip Emacs lock
+symlinks and unavailable files, e.g. temporarily unavailable iCloud
+files."
   (grove--ensure-directory)
   (let ((files (directory-files-recursively grove-directory "\\.org\\'"))
         (seen (make-hash-table :test #'equal)))
-    ;; Update or add entries
+    ;; Update or add entries.
     (dolist (file files)
-      (puthash file t seen)
-      (let* ((cached (gethash file grove--cache))
-             (current-mtime (file-attribute-modification-time
-                             (file-attributes file)))
-             (cached-mtime (plist-get cached :mtime)))
-        (when (or (null cached)
-                  (not (equal current-mtime cached-mtime)))
-          (puthash file (grove--parse-note file) grove--cache))))
-    ;; Remove deleted files
+      (unless (or (string-prefix-p ".#" (file-name-nondirectory file))
+                  (file-symlink-p file))
+        (condition-case err
+            (let* ((cached (gethash file grove--cache))
+                   (current-mtime (file-attribute-modification-time
+                                   (file-attributes file)))
+                   (cached-mtime (plist-get cached :mtime)))
+              (puthash file t seen)
+              (when (or (null cached)
+                        (not (equal current-mtime cached-mtime)))
+                (puthash file (grove--parse-note file) grove--cache)))
+          (file-error
+           (message "grove: skipping unavailable file %s (%s)"
+                    (file-name-nondirectory file)
+                    (error-message-string err))))))
+    ;; Remove deleted files.
     (maphash (lambda (key _val)
                (unless (gethash key seen)
                  (remhash key grove--cache)))
